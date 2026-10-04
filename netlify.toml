@@ -2,3 +2,9 @@
 [build]
   publish = "."
   functions = "netlify/functions"
+
+# The app calls /api/moosha on every host. On Netlify that address is passed to the function.
+[[redirects]]
+  from = "/api/moosha"
+  to = "/.netlify/functions/moosha"
+  status = 200

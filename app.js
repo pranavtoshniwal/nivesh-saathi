@@ -98,14 +98,16 @@ const esc = x => String(x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 // pause cancels the current sentence and resume starts it again.
 const narr = {
   ok: 'speechSynthesis' in window, state: 'idle', segs: [], i: 0, token: 0,
+  owner: null, // which Listen button started the current narration: 'main', 'term:nav', 'chat:3', ...
   voice() {
     const vs = speechSynthesis.getVoices();
     return vs.find(v => v.lang.replace('_', '-').toLowerCase().startsWith(lang)) || null;
   },
   missingVoice() { return this.ok && speechSynthesis.getVoices().length > 0 && !this.voice(); },
-  speak(texts) {
+  speak(texts, owner = 'main') {
     this.stop();
     if (!this.ok) return;
+    this.owner = owner;
     this.segs = texts.flatMap(x => x.match(/[^.।?!]+[.।?!]*\s*/g) || []).map(x => x.trim()).filter(Boolean);
     this.i = 0;
     this.go();
@@ -128,20 +130,35 @@ const narr = {
   stop() {
     this.token++;
     if (this.ok) speechSynthesis.cancel();
-    this.segs = []; this.i = 0; this.state = 'idle';
+    this.segs = []; this.i = 0; this.state = 'idle'; this.owner = null;
     drawNarr();
   },
 };
 
+// What to read aloud for each kind of small Listen button. moosha.js adds SAY.chat.
+const SAY = { term: id => { const g = C.glossary.terms.find(x => x.id === id); return [t(g.term) + '.', t(g.def), t(g.like)]; } };
+
+// Listen, or Pause / Resume and Stop while this button's narration is running.
+function sayInner(key, primary) {
+  const st = narr.owner === key ? narr.state : 'idle';
+  const b = (act, label, ghost) => `<button data-act="${act}"${ghost ? ' class="ghost"' : ''}>${esc(s(label))}</button>`;
+  if (st === 'idle') return b(key === 'main' ? 'listen' : 'sayStart', 'listen', !primary);
+  return b(st === 'speaking' ? 'pause' : 'resume', st === 'speaking' ? 'pause' : 'resume', !primary) + b('stop', 'stop', 1);
+}
+/** A small Listen control for one glossary term or chat message. */
+function sayBox(kind, arg) {
+  if (!narr.ok) return '';
+  const key = `${kind}:${arg}`;
+  return `<span class="saybox" data-key="${esc(key)}" data-kind="${kind}" data-arg="${esc(arg)}">${sayInner(key)}</span>`;
+}
+
 function drawNarr() {
+  document.querySelectorAll('.saybox').forEach(el => { el.innerHTML = sayInner(el.dataset.key); });
   const el = $('narr');
   if (!el) return;
   if (!narr.ok) { el.innerHTML = ''; return; }
-  const b = (act, label, ghost) => `<button data-act="${act}"${ghost ? ' class="ghost"' : ''}>${esc(s(label))}</button>`;
-  el.innerHTML =
-    narr.state === 'idle' ? b('listen', 'listen')
-    : narr.state === 'speaking' ? b('pause', 'pause') + b('stop', 'stop', 1) + `<span class="small muted" role="status">${esc(s('speaking'))}</span>`
-    : b('resume', 'resume') + b('stop', 'stop', 1) + `<span class="small muted" role="status">${esc(s('paused'))}</span>`;
+  const st = narr.owner === 'main' ? narr.state : 'idle';
+  el.innerHTML = sayInner('main', true) + (st === 'idle' ? '' : `<span class="small muted" role="status">${esc(s(st === 'speaking' ? 'speaking' : 'paused'))}</span>`);
 }
 
 // ---------- Voice answers (speech to text) ----------
@@ -308,7 +325,7 @@ function termBlock(g, withLesson) {
   return `<details><summary>${esc(t(g.term))}</summary><div>
     <p>${esc(t(g.def))}</p><p class="like">${esc(t(g.like))}</p>
     <div class="actions">
-      ${narr.ok ? `<button class="ghost" data-act="say" data-id="${g.id}">${esc(s('listen'))}</button>` : ''}
+      ${sayBox('term', g.id)}
       ${lid ? `<a class="btn ghost" href="#/lesson/${lid}">${esc(s('openLesson'))}</a>` : ''}
     </div></div></details>`;
 }
@@ -391,9 +408,9 @@ document.addEventListener('click', e => {
   else if (act === 'retry') { narr.stop(); quiz = null; render(); }
   else if (act === 'mic') listenForAnswer();
   else if (act === 'micStop') { showListening(false); if (recog) { try { recog.abort(); } catch { /* ignore */ } } }
-  else if (act === 'say') {
-    const g = C.glossary.terms.find(x => x.id === b.dataset.id);
-    narr.speak([t(g.term) + '.', t(g.def), t(g.like)]);
+  else if (act === 'sayStart') {
+    const box = b.closest('.saybox');
+    narr.speak(SAY[box.dataset.kind](box.dataset.arg), box.dataset.key);
   }
   else if (ACTIONS[act]) ACTIONS[act](b, r);
 });

@@ -40,15 +40,26 @@ const clean = (x, max) => PII.reduce((t, re) => t.replace(re, ' [removed] '), St
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
 
 // One call to one model. Returns { ok, status, text, detail }. The key travels in a header, never in the URL.
+// Models that refused the "answer without long thinking" setting; they are called without it.
+const plain = new Set();
+
 async function generate(key, name, payload, ms) {
+  // Asking the model not to "think" first makes answers much faster. Not every model accepts the setting.
+  const fast = !plain.has(name);
+  const body = fast ? { ...payload, generationConfig: { ...payload.generationConfig, thinkingConfig: { thinkingBudget: 0 } } } : payload;
+  const started = Date.now();
   let res;
   try {
     res = await fetch(`${API}/models/${name}:generateContent`, {
       method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify(payload), signal: AbortSignal.timeout(ms),
+      body: JSON.stringify(body), signal: AbortSignal.timeout(ms),
     });
   } catch { return { ok: false, status: 504, text: '', detail: 'the model took too long to answer' }; }
   const data = await res.json().catch(() => ({}));
+  if (res.status === 400 && fast) { // most likely the setting above; try once more without it
+    plain.add(name);
+    return generate(key, name, payload, Math.max(1000, ms - (Date.now() - started)));
+  }
   const text = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').replace(/[*#`]/g, '').trim();
   const detail = data.error?.message || (text ? '' : `no text returned (${data.candidates?.[0]?.finishReason || data.promptFeedback?.blockReason || 'unknown reason'})`);
   return { ok: res.ok && !!text, status: res.status, text, detail: String(detail).slice(0, 300) };
@@ -62,25 +73,35 @@ async function otherModels(key) {
     const names = ((await res.json()).models || [])
       .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
       .map(m => m.name.replace('models/', ''))
-      .filter(n => n.includes('flash') && !/image|tts|audio|live|embed|vision|thinking|exp|preview/.test(n));
-    const rank = n => (n.includes('lite') ? 0 : 2) + (n.endsWith('-latest') ? 1 : 0);
+      .filter(n => n.startsWith('gemini') && n.includes('flash') && !/image|tts|audio|live|embed|vision|robotics|computer/.test(n));
+    const rank = n => (/preview|exp/.test(n) ? 0 : 4) + (n.endsWith('-latest') ? 2 : 0) + (n.includes('lite') ? 1 : 0);
     return names.sort((x, y) => rank(y) - rank(x) || y.localeCompare(x, undefined, { numeric: true }));
   } catch { return []; }
 }
 
 // Try the current model; if it is gone, busy or slow, try the others until one answers or time runs out.
-// Netlify stops a function after about 10 seconds, so everything must finish inside 8.5.
+// Netlify stops a function after about 10 seconds; on Vercel vercel.json allows 60.
+const ON_VERCEL = !!process.env.VERCEL;
+const BUDGET = ON_VERCEL ? 52000 : 8500;   // total time for one question
+const FIRST = ON_VERCEL ? 25000 : 6000;    // how long the first model may take
+const OTHERS = ON_VERCEL ? 15000 : 5000;   // how long each fallback model may take
 async function ask(key, payload) {
-  const deadline = Date.now() + 8500;
+  const deadline = Date.now() + BUDGET;
   const left = () => deadline - Date.now();
-  let out = await generate(key, model, payload, Math.min(5000, left()));
-  if (out.ok || ![400, 404, 429, 500, 503, 504].includes(out.status) || (out.status === 400 && !/model/i.test(out.detail))) return out;
-  for (const name of (await otherModels(key)).filter(n => n !== model)) {
-    if (left() < 1500) break;
-    const next = await generate(key, name, payload, Math.min(4000, left()));
-    if (next.ok) { model = name; return next; }
-    out = next;
+  const tried = [model];
+  let out = await generate(key, model, payload, Math.min(FIRST, left()));
+  const retryable = o => [404, 429, 500, 503, 504].includes(o.status) || (o.status === 400 && /model/i.test(o.detail));
+  if (!out.ok && retryable(out)) {
+    for (const name of (await otherModels(key)).filter(n => n !== model)) {
+      if (left() < 1500) break;
+      tried.push(name);
+      const next = await generate(key, name, payload, Math.min(OTHERS, left()));
+      if (next.ok) { model = name; out = next; break; }
+      out = next;
+      if (!retryable(next)) break;
+    }
   }
+  out.tried = tried;
   return out;
 }
 
@@ -92,7 +113,7 @@ export async function handler(req) {
     if (!key) return json(200, { function: 'running', key: 'MISSING: add GEMINI_API_KEY in Netlify environment variables, then redeploy' });
     try {
       const t = await ask(key, { contents: [{ role: 'user', parts: [{ text: 'Reply with the single word OK.' }] }], generationConfig: { maxOutputTokens: 2048 } });
-      return json(200, { function: 'running', key: 'found', model, ai: t.ok ? 'working' : `FAILED (${t.status}): ${t.detail}` });
+      return json(200, { function: 'running', key: 'found', model, ai: t.ok ? 'working' : `FAILED (${t.status}): ${t.detail}`, tried: t.tried });
     } catch (e) {
       return json(200, { function: 'running', key: 'found', model, ai: `FAILED: could not reach Google (${String(e.message || e).slice(0, 120)})` });
     }

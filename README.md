@@ -7,7 +7,8 @@ Plain HTML, CSS and JavaScript, plus one small server function for the MOOSHA ch
 | index.html, styles.css, app.js | Lessons, quizzes, glossary, voice, language and theme |
 | sim.js | "Try it" tab: the four consequence stories |
 | moosha.js | MOOSHA chat screen, personal-detail removal, advice refusal, offline answers |
-| netlify/functions/moosha.mjs | Server function that talks to the AI. Your API key lives only here |
+| server/moosha-core.mjs | Server logic that talks to the AI. Your API key is read only here |
+| api/moosha.js, netlify/functions/moosha.mjs | Entry points for Vercel and Netlify |
 | content.json | All lessons and glossary terms in four languages |
 | sw.js, manifest.webmanifest, icons | Offline use and install-to-home-screen |
 
@@ -16,21 +17,22 @@ Plain HTML, CSS and JavaScript, plus one small server function for the MOOSHA ch
 Open http://localhost:8000. MOOSHA answers from the app's own lessons in this mode (no AI).
 
 ## Put it online with the AI working
-Drag-and-drop upload does NOT run the server function, so use one of these:
+The same folder works on Vercel and on Netlify. Drag-and-drop upload does NOT run the server function on either.
 
-A. GitHub: push this folder to a GitHub repository, then in Netlify choose
-   "Add new site → Import an existing project" and pick the repository.
+### Vercel
+1. Push this folder to a GitHub repository (the files must be at the top of the repository, not inside a sub-folder),
+   or run `npx vercel --prod` inside this folder.
+2. In Vercel: Add New → Project → pick the repository. Framework preset: Other. Leave the build command empty.
+3. Project → Settings → Environment Variables: add GEMINI_API_KEY (your key from https://aistudio.google.com).
+4. Deployments → Redeploy, so the function picks up the key.
 
-B. Command line:
-       npm install -g netlify-cli
-       netlify login
-       netlify deploy --prod        (run inside this folder)
+### Netlify
+1. Import the GitHub repository, or run `netlify deploy --prod` inside this folder.
+2. Site configuration → Environment variables: add GEMINI_API_KEY, then redeploy.
 
-Then add the key: Netlify → your site → Site configuration → Environment variables:
-- GEMINI_API_KEY = your key from https://aistudio.google.com (Get API key)
-- GEMINI_MODEL   = optional. The default is in moosha.mjs. If the AI stops answering,
-                   open AI Studio, copy the id of a current "Flash" model and set it here.
-Redeploy after adding the variables.
+### Check it
+Open https://YOUR-SITE/api/moosha in a browser. It should show: function running, key found, ai working.
+It never shows the key. GEMINI_MODEL is optional; the function picks a working Flash model by itself.
 
 Never put the key in app.js, moosha.js or any file that is sent to the phone.
 

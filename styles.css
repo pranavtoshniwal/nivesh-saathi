@@ -212,3 +212,19 @@ button.live, [data-act="mic"]:disabled { border-color: var(--bad); color: var(--
 .row .small { line-height: 1.35; display: inline-block; }
 /* Keep the listening banner clear of the question, the chat box and the MOOSHA button. */
 .listening { top: auto; bottom: calc(142px + env(safe-area-inset-bottom)); }
+
+/* ----- Listen / Pause / Stop next to every Listen button ----- */
+.saybox { display: contents; }
+.actions .saybox > * { flex: 1 1 110px; }
+.msg .actions .saybox > * { min-height: 42px; padding: 4px 12px; flex: 0 1 auto; }
+
+/* ----- MOOSHA question box: wraps and grows instead of scrolling sideways ----- */
+.chatbar { align-items: flex-end; }
+.chatbar textarea {
+  flex: 1; min-width: 0; min-height: var(--tap); max-height: 132px; padding: 13px 14px; border-radius: 14px;
+  border: 2px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; line-height: 1.4;
+  resize: none; overflow-y: auto; display: block;
+}
+.chatbar textarea:focus-visible { outline: 3px solid var(--warm-ink); outline-offset: 2px; }
+#chatlog { padding-bottom: 160px; }
+.msg p { white-space: pre-wrap; }

@@ -6,7 +6,7 @@
 //   3. The server function (netlify/functions/moosha.mjs) strips details again and holds the AI to strict rules.
 // The conversation lives only in memory: it is not saved on the phone or on the server.
 
-const MOOSHA_URL = '/.netlify/functions/moosha';
+const MOOSHA_URL = '/api/moosha'; // same address on Vercel and Netlify
 
 Object.assign(S, {
   mooshaHi: ['Namaste! I am MOOSHA. Ask me any doubt about money, markets or fraud and I will explain it simply.',
@@ -104,7 +104,7 @@ async function askMoosha(raw) {
   let reply = null, aiError = '';
   try {
     const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 15000);
+    const timer = setTimeout(() => ctl.abort(), 58000); // slow answers are allowed; the server gives up first
     const res = await fetch(MOOSHA_URL, {
       method: 'POST', headers: { 'content-type': 'application/json' }, signal: ctl.signal,
       body: JSON.stringify({
@@ -132,7 +132,7 @@ function chatLog() {
       ${m.note ? `<p class="small muted">${esc(s(m.note === 'ai' ? 'mooshaAi' : 'mooshaOffline'))}</p>` : ''}
       ${m.err ? `<p class="small muted">AI: ${esc(m.err)}</p>` : ''}
       ${m.who === 'm' ? `<div class="actions">
-        ${narr.ok ? `<button class="ghost" data-act="chatSay" data-i="${i}">${esc(s('listen'))}</button>` : ''}
+        ${sayBox('chat', i)}
         ${m.lesson ? `<a class="btn ghost" href="#/lesson/${m.lesson}">${esc(s('openLesson'))}</a>` : ''}</div>` : ''}
     </div>`;
   const starters = chat.length ? '' : `<div class="chips">${s('mooshaStarters').split('|').map(q => `<button class="ghost" data-act="chatAsk" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>`;
@@ -151,7 +151,7 @@ function viewMoosha() {
     <div id="chatlog" aria-live="polite">${chatLog()}</div>
     <form id="chatform" class="chatbar" autocomplete="off">
       <label class="sr" for="chatq">${esc(s('mooshaAsk'))}</label>
-      <input id="chatq" type="text" maxlength="500" placeholder="${esc(s('mooshaAsk'))}" enterkeyhint="send">
+      <textarea id="chatq" rows="1" maxlength="500" placeholder="${esc(s('mooshaAsk'))}" enterkeyhint="send"></textarea>
       ${SR ? `<button type="button" class="ghost" data-act="chatMic" aria-label="${esc(s('mooshaSpeak'))}">🎤</button>` : ''}
       <button type="submit">${esc(s('mooshaSend'))}</button>
     </form>`;
@@ -159,7 +159,7 @@ function viewMoosha() {
 
 VIEWS.moosha = viewMoosha;
 ACTIONS.chatAsk = b => askMoosha(b.dataset.q);
-ACTIONS.chatSay = b => narr.speak([chat[+b.dataset.i].text]);
+SAY.chat = i => [chat[+i].text];
 ACTIONS.chatMic = b => {
   narr.stop();
   recog = new SR(); // shared with the quiz, so the Stop button in the banner works here too
@@ -177,5 +177,18 @@ document.addEventListener('submit', e => {
   const box = $('chatq');
   const q = box.value;
   box.value = '';
+  box.style.height = '';
   askMoosha(q);
+});
+// The question box wraps long text and grows up to a few lines, so the whole question stays visible.
+document.addEventListener('input', e => {
+  if (e.target.id !== 'chatq') return;
+  e.target.style.height = 'auto';
+  e.target.style.height = Math.min(e.target.scrollHeight, 132) + 'px';
+});
+// Enter sends; Shift+Enter starts a new line.
+document.addEventListener('keydown', e => {
+  if (e.target.id !== 'chatq' || e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+  e.preventDefault();
+  $('chatform').requestSubmit();
 });
