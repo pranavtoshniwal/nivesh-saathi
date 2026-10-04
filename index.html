@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nivesh Saathi – Learn money, safely</title>
+<meta name="description" content="Short money and market lessons in English, Hindi, Marathi and Gujarati, with voice.">
+<meta name="theme-color" content="#0b6e4f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="#/" id="brand">Nivesh Saathi</a>
+  <span class="grow"></span>
+  <button id="theme" class="icon" type="button" aria-label="Switch between light and dark">🌙</button>
+  <label class="lang">
+    <span class="sr" id="langLabel">Language</span>
+    <select id="lang" aria-labelledby="langLabel"></select>
+  </label>
+</header>
+<div id="listening" class="listening" role="status" hidden>
+  <span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+  <strong id="listeningText">Listening…</strong>
+  <button type="button" id="listeningStop" data-act="micStop">Stop</button>
+</div>
+<main id="app" tabindex="-1"><p class="loading">…</p></main>
+<nav class="tabs" aria-label="Sections">
+  <a href="#/" id="tabLessons"></a>
+  <a href="#/sim" id="tabSim"></a>
+  <a href="#/glossary" id="tabGlossary"></a>
+</nav>
+<a href="#/moosha" id="fab" class="fab" aria-label="Ask MOOSHA, the doubt helper"><span aria-hidden="true">🐭</span><small>MOOSHA</small></a>
+<script src="app.js"></script>
+<script src="sim.js"></script>
+<script src="moosha.js"></script>
+</body>
+</html>
