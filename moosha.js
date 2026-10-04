@@ -6,7 +6,7 @@
 //   3. The server function (netlify/functions/moosha.mjs) strips details again and holds the AI to strict rules.
 // The conversation lives only in memory: it is not saved on the phone or on the server.
 
-const MOOSHA_URL = '/api/moosha'; // same address on Vercel and Netlify
+const MOOSHA_URL = '/.netlify/functions/moosha';
 
 Object.assign(S, {
   mooshaHi: ['Namaste! I am MOOSHA. Ask me any doubt about money, markets or fraud and I will explain it simply.',

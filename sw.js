@@ -1,5 +1,5 @@
 // Caches the whole app so it opens with no connection. Bump VERSION whenever any file changes.
-const VERSION = 'niveshsaathi-v7';
+const VERSION = 'niveshsaathi-v6';
 const FILES = ['./', 'index.html', 'styles.css', 'app.js', 'sim.js', 'moosha.js', 'content.json', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
