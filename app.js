@@ -108,7 +108,9 @@ const narr = {
     this.stop();
     if (!this.ok) return;
     this.owner = owner;
-    this.segs = texts.flatMap(x => x.match(/[^.।?!]+[.।?!]*\s*/g) || []).map(x => x.trim()).filter(Boolean);
+    // Voices spell out all-capital words letter by letter, so say the name as a word in the listener's script.
+    const name = { en: 'Moosha', hi: 'मूशा', mr: 'मूशा', gu: 'મૂશા' }[lang];
+    this.segs = texts.flatMap(x => x.replace(/MOOSHA/g, name).match(/[^.।?!]+[.।?!]*\s*/g) || []).map(x => x.trim()).filter(Boolean);
     this.i = 0;
     this.go();
   },
